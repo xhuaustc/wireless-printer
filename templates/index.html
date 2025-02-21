@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无线打印系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>无线打印系统</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="file-upload">
+                <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.bmp">
+                <label for="fileInput">选择文件</label>
+                <div id="selectedFileName" class="selected-file"></div>
+            </div>
+            
+            <div class="print-settings">
+                <div class="setting-group">
+                    <label>纸张大小：</label>
+                    <select name="paperSize" id="paperSize">
+                        <option value="A4">A4</option>
+                        <option value="A5">A5</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label>打印方向：</label>
+                    <select name="orientation" id="orientation">
+                        <option value="portrait">竖向</option>
+                        <option value="landscape">横向</option>
+                    </select>
+                </div>
+                
+                <div class="setting-group">
+                    <label>缩放比例：</label>
+                    <input type="number" name="scale" id="scale" value="100" min="10" max="200">%
+                </div>
+            </div>
+            
+            <button type="submit" id="submitBtn">开始打印</button>
+        </form>
+        
+        <div id="progressContainer" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+            <p id="status">正在处理...</p>
+        </div>
+    </div>
+
+    <script>
+        // 添加文件选择监听器
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '未选择文件';
+            document.getElementById('selectedFileName').textContent = fileName;
+        });
+
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const form = new FormData(e.target);
+            const progressBar = document.getElementById('progress');
+            const progressContainer = document.getElementById('progressContainer');
+            const status = document.getElementById('status');
+            
+            progressContainer.style.display = 'block';
+            let progress = 0;
+            
+            // 模拟上传进度
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                }
+            }, 500);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: form
+                });
+                
+                const result = await response.json();
+                
+                clearInterval(progressInterval);
+                progress = 100;
+                progressBar.style.width = '100%';
+                
+                if (response.ok) {
+                    status.textContent = '打印完成！';
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        document.getElementById('uploadForm').reset();
+                    }, 2000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                status.textContent = '错误：' + error.message;
+                progressBar.style.backgroundColor = '#ff4444';
+            }
+        };
+    </script>
+</body>
+</html> 
