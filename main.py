@@ -26,7 +26,7 @@ def allowed_file(filename):
 def is_image_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in IMAGE_EXTENSIONS
 
-def convert_image_to_pdf(image_path, output_path, paper_size='A4', orientation='portrait'):
+def convert_image_to_pdf(image_path, output_path, paper_size='A4', orientation='portrait', scale=100):
     # 打开图片
     img = Image.open(image_path)
     
@@ -49,6 +49,10 @@ def convert_image_to_pdf(image_path, output_path, paper_size='A4', orientation='
         page_size[0] * 0.9 / img_width,
         page_size[1] * 0.9 / img_height
     )
+    
+    # 应用缩放比例
+    scale_factor = scale / 100.0
+    ratio = ratio * scale_factor
     
     new_width = img_width * ratio
     new_height = img_height * ratio
@@ -82,7 +86,7 @@ def upload_file():
         # 获取打印参数
         paper_size = request.form.get('paperSize', 'A4')
         orientation = request.form.get('orientation', 'portrait')
-        scale = request.form.get('scale', '100')
+        scale = int(request.form.get('scale', '100'))
         
         try:
             printer_name = win32print.GetDefaultPrinter()
@@ -91,15 +95,20 @@ def upload_file():
             # 如果是图片文件，先转换为PDF
             if is_image_file(filename):
                 pdf_filepath = os.path.join(tempfile.gettempdir(), f"{os.path.splitext(filename)[0]}.pdf")
-                convert_image_to_pdf(filepath, pdf_filepath, paper_size, orientation)
+                convert_image_to_pdf(filepath, pdf_filepath, paper_size, orientation, scale)
                 print_filepath = pdf_filepath
+
+            # 构建打印命令参数
+            print_params = f'/d:"{printer_name}"'
+            if orientation == 'landscape':
+                print_params += ' /o'  # 添加横向打印参数
             
             # 打印文件
             win32api.ShellExecute(
                 0,
                 "print",
                 print_filepath,
-                f'/d:"{printer_name}"',
+                print_params,
                 ".",
                 0
             )
@@ -107,7 +116,7 @@ def upload_file():
             # 如果是临时PDF文件，等待一会儿后删除
             if print_filepath != filepath:
                 import time
-                time.sleep(10)  # 等待10秒确保打印开始
+                time.sleep(5)  # 等待5秒确保打印开始
                 try:
                     os.remove(print_filepath)
                 except:
