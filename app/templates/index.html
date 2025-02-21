@@ -3,60 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>无线打印系统</title>
+    <title>智能办公助手</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>无线打印系统</h1>
-        <form id="uploadForm" enctype="multipart/form-data">
-            <div class="file-upload">
-                <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.bmp">
-                <label for="fileInput">选择文件</label>
-                <div id="selectedFileName" class="selected-file"></div>
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="print">无线打印</button>
+                <button class="tab-btn" data-tab="sketch">图片转简笔画</button>
             </div>
-            
-            <div class="print-settings">
-                <div class="setting-group">
-                    <label>纸张大小：</label>
-                    <select name="paperSize" id="paperSize">
-                        <option value="A4">A4</option>
-                        <option value="A5">A5</option>
-                    </select>
-                </div>
+        </div>
+
+        <!-- 无线打印系统 -->
+        <div class="tab-content active" id="print-content">
+            <h1>无线打印系统</h1>
+            <div class="card">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="file-upload">
+                        <input type="file" id="fileInput" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.bmp">
+                        <label for="fileInput">
+                            <i class="icon-upload"></i>
+                            <span>选择文件</span>
+                        </label>
+                        <div id="selectedFileName" class="selected-file"></div>
+                    </div>
+                    
+                    <div class="print-settings">
+                        <div class="setting-group">
+                            <label>纸张大小：</label>
+                            <select name="paperSize" id="paperSize">
+                                <option value="A4">A4</option>
+                                <option value="A5">A5</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>打印方向：</label>
+                            <select name="orientation" id="orientation">
+                                <option value="portrait">竖向</option>
+                                <option value="landscape">横向</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label>缩放比例：</label>
+                            <div class="scale-input">
+                                <input type="number" name="scale" id="scale" value="100" min="10" max="200">
+                                <span class="unit">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" id="submitBtn" class="primary-btn">开始打印</button>
+                </form>
                 
-                <div class="setting-group">
-                    <label>打印方向：</label>
-                    <select name="orientation" id="orientation">
-                        <option value="portrait">竖向</option>
-                        <option value="landscape">横向</option>
-                    </select>
+                <div id="progressContainer" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress" id="progress"></div>
+                    </div>
+                    <p id="status">正在处理...</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- 图片转简笔画 -->
+        <div class="tab-content" id="sketch-content">
+            <h1>图片转简笔画</h1>
+            <div class="card">
+                <form id="sketchForm" enctype="multipart/form-data">
+                    <div class="file-upload">
+                        <input type="file" id="imageInput" name="file" accept=".jpg,.jpeg,.png,.gif">
+                        <label for="imageInput">
+                            <i class="icon-image"></i>
+                            <span>选择图片</span>
+                        </label>
+                        <div id="selectedImageName" class="selected-file"></div>
+                    </div>
+                    
+                    <div id="originalPreview" style="display: none;" class="result-container">
+                        <h3>原图预览</h3>
+                        <div class="image-preview">
+                            <img id="originalImage" src="" alt="原图预览">
+                        </div>
+                    </div>
+
+                    <div class="sketch-settings">
+                        <div class="setting-group">
+                            <label>转换风格：</label>
+                            <select name="style" id="sketchStyle" class="style-select">
+                                <option value="normal">普通简笔画</option>
+                                <option value="artistic">艺术简笔画</option>
+                            </select>
+                        </div>
+                        
+                        <div id="normalSettings" class="advanced-settings">
+                            <div class="setting-group slider-group">
+                                <label>线条粗细：</label>
+                                <div class="slider-container">
+                                    <input type="range" name="threshold1" min="0" max="255" value="50">
+                                    <span class="value">50</span>
+                                </div>
+                                <div class="setting-hint">值越小，检测到的线条越多</div>
+                            </div>
+                            
+                            <div class="setting-group slider-group">
+                                <label>线条连续性：</label>
+                                <div class="slider-container">
+                                    <input type="range" name="threshold2" min="0" max="255" value="150">
+                                    <span class="value">150</span>
+                                </div>
+                                <div class="setting-hint">值越大，线条越连续</div>
+                            </div>
+                            
+                            <div class="setting-group slider-group">
+                                <label>模糊程度：</label>
+                                <div class="slider-container">
+                                    <input type="range" name="blurSize" min="3" max="21" step="2" value="5">
+                                    <span class="value">5</span>
+                                </div>
+                                <div class="setting-hint">值越大，细节越少</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="primary-btn">转换为简笔画</button>
+                </form>
                 
-                <div class="setting-group">
-                    <label>缩放比例：</label>
-                    <input type="number" name="scale" id="scale" value="100" min="10" max="200">%
+                <div id="sketchResult" style="display: none;" class="result-container">
+                    <h3>转换结果</h3>
+                    <div class="image-preview">
+                        <img id="sketchImage" src="" alt="简笔画结果">
+                    </div>
+                    <div class="button-group">
+                        <button id="downloadSketch" class="secondary-btn">
+                            <i class="icon-download"></i>
+                            下载简笔画
+                        </button>
+                        <button id="printSketch" class="secondary-btn">
+                            <i class="icon-print"></i>
+                            打印简笔画
+                        </button>
+                    </div>
+                    <div id="sketchProgressContainer" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress" id="sketchProgress"></div>
+                        </div>
+                        <p id="sketchStatus">正在处理...</p>
+                    </div>
                 </div>
             </div>
-            
-            <button type="submit" id="submitBtn">开始打印</button>
-        </form>
-        
-        <div id="progressContainer" style="display: none;">
-            <div class="progress-bar">
-                <div class="progress" id="progress"></div>
-            </div>
-            <p id="status">正在处理...</p>
         </div>
     </div>
 
     <script>
-        // 添加文件选择监听器
+        // Tab 切换功能
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                // 移除所有活动状态
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                // 添加新的活动状态
+                button.classList.add('active');
+                document.getElementById(`${button.dataset.tab}-content`).classList.add('active');
+            });
+        });
+
+        // 文件选择显示
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name || '未选择文件';
             document.getElementById('selectedFileName').textContent = fileName;
         });
 
+        // 图片选择后预览
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const fileName = file.name;
+                document.getElementById('selectedImageName').textContent = fileName;
+                
+                // 显示原图预览
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const originalPreview = document.getElementById('originalPreview');
+                    const originalImage = document.getElementById('originalImage');
+                    originalImage.src = e.target.result;
+                    originalPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 打印表单提交
         document.getElementById('uploadForm').onsubmit = async (e) => {
             e.preventDefault();
             
@@ -64,11 +203,12 @@
             const progressBar = document.getElementById('progress');
             const progressContainer = document.getElementById('progressContainer');
             const status = document.getElementById('status');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
             
             progressContainer.style.display = 'block';
+            submitBtn.disabled = true;
             let progress = 0;
             
-            // 模拟上传进度
             const progressInterval = setInterval(() => {
                 if (progress < 90) {
                     progress += 10;
@@ -92,7 +232,9 @@
                     status.textContent = '打印完成！';
                     setTimeout(() => {
                         progressContainer.style.display = 'none';
-                        document.getElementById('uploadForm').reset();
+                        e.target.reset();
+                        document.getElementById('selectedFileName').textContent = '';
+                        submitBtn.disabled = false;
                     }, 2000);
                 } else {
                     throw new Error(result.error);
@@ -101,8 +243,117 @@
                 clearInterval(progressInterval);
                 status.textContent = '错误：' + error.message;
                 progressBar.style.backgroundColor = '#ff4444';
+                submitBtn.disabled = false;
             }
         };
+
+        // 简笔画表单提交
+        document.getElementById('sketchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            
+            try {
+                const response = await fetch('/convert-sketch', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const resultDiv = document.getElementById('sketchResult');
+                    const sketchImage = document.getElementById('sketchImage');
+                    const timestamp = new Date().getTime();
+                    sketchImage.src = `/uploads/${data.filename}?t=${timestamp}`;
+                    resultDiv.style.display = 'block';
+                    
+                    const downloadBtn = document.getElementById('downloadSketch');
+                    downloadBtn.onclick = () => {
+                        const link = document.createElement('a');
+                        link.href = `/uploads/${data.filename}`;
+                        link.download = data.filename;
+                        link.click();
+                    };
+                } else {
+                    alert(data.error || '转换失败');
+                }
+            } catch (error) {
+                alert('转换过程中出错');
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+
+        // 简笔画设置显示/隐藏
+        document.getElementById('sketchStyle').addEventListener('change', (e) => {
+            const normalSettings = document.getElementById('normalSettings');
+            normalSettings.style.display = e.target.value === 'normal' ? 'block' : 'none';
+        });
+
+        // 滑块值更新
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const valueSpan = slider.nextElementSibling;
+            slider.addEventListener('input', () => {
+                valueSpan.textContent = slider.value;
+            });
+        });
+
+        // 打印简笔画
+        document.getElementById('printSketch').addEventListener('click', async () => {
+            const sketchImage = document.getElementById('sketchImage');
+            const imageUrl = sketchImage.src.split('?')[0]; // 移除时间戳参数
+            const filename = imageUrl.split('/').pop();
+            
+            const progressBar = document.getElementById('sketchProgress');
+            const progressContainer = document.getElementById('sketchProgressContainer');
+            const status = document.getElementById('sketchStatus');
+            const printBtn = document.getElementById('printSketch');
+            
+            progressContainer.style.display = 'block';
+            printBtn.disabled = true;
+            let progress = 0;
+            
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += 10;
+                    progressBar.style.width = progress + '%';
+                }
+            }, 500);
+            
+            try {
+                const response = await fetch('/print-sketch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ filename: filename })
+                });
+                
+                const result = await response.json();
+                
+                clearInterval(progressInterval);
+                progress = 100;
+                progressBar.style.width = '100%';
+                
+                if (result.success) {
+                    status.textContent = '打印完成！';
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        printBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                status.textContent = '错误：' + error.message;
+                progressBar.style.backgroundColor = '#ff4444';
+                printBtn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html> 
