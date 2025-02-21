@@ -107,7 +107,7 @@ def upload_file():
             # 如果是临时PDF文件，等待一会儿后删除
             if print_filepath != filepath:
                 import time
-                time.sleep(2)  # 等待2秒确保打印开始
+                time.sleep(10)  # 等待10秒确保打印开始
                 try:
                     os.remove(print_filepath)
                 except:
