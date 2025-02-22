@@ -22,3 +22,7 @@ uploads/
 dist/
 build/
 *.egg-info/ 
+
+# Temporary cursor rules and settings
+.cursorrules  # Cursor rules configuration file
+.cursor       # Cursor settings file
