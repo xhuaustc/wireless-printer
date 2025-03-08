@@ -44,7 +44,7 @@ def upload_file():
             PrintService.print_file(print_filepath, orientation=orientation)
             
             if print_filepath != filepath:
-                time.sleep(5)
+                time.sleep(10)
                 try:
                     os.remove(print_filepath)
                 except:

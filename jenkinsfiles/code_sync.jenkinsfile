@@ -1,0 +1,184 @@
+pipeline {
+    agent any
+    
+    environment {
+        // Use Jenkins credential system to get GitLab Tokens
+        SOURCE_GITLAB_TOKEN = credentials('source-gitlab-api-token')
+        TARGET_GITLAB_TOKEN = credentials('target-gitlab-api-token')
+        SOURCE_REPO = "${params.SOURCE_REPO}"
+        TARGET_REPO = "${params.TARGET_REPO}"
+        SOURCE_BRANCH = "${params.SOURCE_BRANCH}"
+        TARGET_BRANCH = "${params.TARGET_BRANCH}"
+        GITLAB_API_URL = "https://gitlab.example.com/api/v4" // Update this with your GitLab instance URL
+    }
+    
+    parameters {
+        string(name: 'SOURCE_REPO', defaultValue: '', description: 'Source repository URL')
+        string(name: 'SOURCE_BRANCH', defaultValue: 'master', description: 'Source repository branch')
+        string(name: 'TARGET_REPO_NAME', defaultValue: '', description: 'Target repository name')
+        string(name: 'TARGET_GROUP_PATH', defaultValue: '', description: 'GitLab group path')
+        string(name: 'GITLAB_API_URL', defaultValue: 'https://gitlab.example.com/api/v4', description: 'GitLab API URL')
+    }
+    
+    stages {
+        stage('Check and Create Target Repository') {
+            steps {
+                script {
+                    // Check if target repository exists
+                    def checkRepoResponse = sh(
+                        script: """
+                            curl --silent --header 'PRIVATE-TOKEN: ${env.TARGET_GITLAB_TOKEN}' \
+                            '${params.GITLAB_API_URL}/projects/${java.net.URLEncoder.encode(params.TARGET_GROUP_PATH + '/' + params.TARGET_REPO_NAME, 'UTF-8')}'
+                        """,
+                        returnStdout: true,
+                        returnStatus: true
+                    )
+                    
+                    // If repository doesn't exist (HTTP 404), create it
+                    if (checkRepoResponse == 404) {
+                        echo "Target repository doesn't exist, creating new repository: ${params.TARGET_GROUP_PATH}/${params.TARGET_REPO_NAME}"
+                        
+                        // Get target group ID
+                        def groupIdResponse = sh(
+                            script: """
+                                curl --silent --header 'PRIVATE-TOKEN: ${env.TARGET_GITLAB_TOKEN}' \
+                                '${params.GITLAB_API_URL}/groups/${java.net.URLEncoder.encode(params.TARGET_GROUP_PATH, 'UTF-8')}'
+                            """,
+                            returnStdout: true
+                        )
+                        
+                        def groupDetails = readJSON text: groupIdResponse
+                        def groupId = groupDetails.id
+                        
+                        // Create new repository
+                        def createRepoResponse = sh(
+                            script: """
+                                curl --silent --request POST \
+                                --header 'PRIVATE-TOKEN: ${env.TARGET_GITLAB_TOKEN}' \
+                                --header 'Content-Type: application/json' \
+                                --data '{
+                                    "name": "${params.TARGET_REPO_NAME}",
+                                    "namespace_id": ${groupId},
+                                    "visibility": "private",
+                                    "initialize_with_readme": false
+                                }' \
+                                '${params.GITLAB_API_URL}/projects'
+                            """,
+                            returnStdout: true
+                        )
+                        
+                        echo "Repository created successfully"
+                    } else {
+                        echo "Target repository already exists, continuing with sync operation"
+                    }
+                }
+            }
+        }
+        
+        stage('Clone Source Repository') {
+            steps {
+                script {
+                    // Clean workspace
+                    sh 'rm -rf *'
+                    
+                    // Extract domain from source repo URL for authentication
+                    def sourceRepoUrl = params.SOURCE_REPO
+                    def sourceRepoDomain = sh(
+                        script: "echo ${sourceRepoUrl} | grep -o 'https\\?://[^/]\\+' || echo ${sourceRepoUrl} | grep -o 'git@[^:]*'",
+                        returnStdout: true
+                    ).trim()
+                    
+                    // Setup Git credentials for source repository
+                    if (sourceRepoUrl.startsWith("https")) {
+                        // For HTTPS URLs - use SOURCE_GITLAB_TOKEN
+                        def authSourceRepoUrl = sourceRepoUrl.replaceFirst("https://", "https://oauth2:${env.SOURCE_GITLAB_TOKEN}@")
+                        
+                        // Clone source repository with authentication
+                        sh """
+                            git clone ${authSourceRepoUrl} source_repo --branch ${params.SOURCE_BRANCH} --single-branch
+                            cd source_repo
+                            git config --local user.name "Jenkins"
+                            git config --local user.email "jenkins@example.com"
+                        """
+                    } else if (sourceRepoUrl.startsWith("git@")) {
+                        // For SSH URLs, use SSH key from Jenkins credentials
+                        // Note: This requires SSH key to be configured in Jenkins
+                        sshagent(['source-jenkins-ssh-key']) {
+                            sh """
+                                git clone ${sourceRepoUrl} source_repo --branch ${params.SOURCE_BRANCH} --single-branch
+                                cd source_repo
+                                git config --local user.name "Jenkins"
+                                git config --local user.email "jenkins@example.com"
+                            """
+                        }
+                    } else {
+                        error "Unsupported source repository URL format: ${sourceRepoUrl}"
+                    }
+                }
+            }
+        }
+        
+        stage('Configure Target Repository') {
+            steps {
+                script {
+                    // Get target repository information
+                    def targetRepoResponse = sh(
+                        script: """
+                            curl --silent --header 'PRIVATE-TOKEN: ${env.TARGET_GITLAB_TOKEN}' \
+                            '${params.GITLAB_API_URL}/projects/${java.net.URLEncoder.encode(params.TARGET_GROUP_PATH + '/' + params.TARGET_REPO_NAME, 'UTF-8')}'
+                        """,
+                        returnStdout: true
+                    )
+                    
+                    def targetRepo = readJSON text: targetRepoResponse
+                    def targetRepoUrl = targetRepo.http_url_to_repo
+                    
+                    // Store target repository URL as environment variable for later use
+                    env.TARGET_REPO_URL = targetRepoUrl
+                }
+            }
+        }
+        
+        stage('Push to Target Repository') {
+            steps {
+                script {
+                    dir('source_repo') {
+                        // Change remote repository address to target repository
+                        sh """
+                            git remote remove origin
+                            git remote add origin ${env.TARGET_REPO_URL}
+                            
+                            # Set access credentials
+                            git config credential.helper 'store --file=.git/credentials'
+                            echo "https://oauth2:${env.TARGET_GITLAB_TOKEN}@$(echo ${env.TARGET_REPO_URL} | sed 's/https:\\/\\///')" > .git/credentials
+                            
+                            # Force push to target repository
+                            git push -f origin ${params.SOURCE_BRANCH}:master
+                            
+                            # Clean up credentials
+                            rm -f .git/credentials
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Cleanup') {
+            steps {
+                cleanWs()
+                echo "Code sync completed: ${params.SOURCE_REPO} (${params.SOURCE_BRANCH}) -> ${params.TARGET_GROUP_PATH}/${params.TARGET_REPO_NAME}"
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "Code sync completed successfully"
+        }
+        failure {
+            echo "Code sync failed"
+        }
+    }
+}
+
+
